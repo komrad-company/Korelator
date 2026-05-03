@@ -1,0 +1,13 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  security:
+    uses: komrad-company/Kompile-Konquer/.github/workflows/security-pipeline.yml@main
+  pipeline:
+    needs: security
+    uses: komrad-company/Kompile-Konquer/.github/workflows/rust-pipeline.yml@main
