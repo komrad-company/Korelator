@@ -1,9 +1,9 @@
 [package]
-name = "<PROJECT NAME>"
+name = "korelator"
 version = "0.1.0"
 edition = "2024"
 
-description = "<DESCRIPTION>"
+description = "Corelator, trigger and alert sender"
 license = "AGPL-3.0-or-later"
 license-file = "LICENSE"
 readme = "README.md"
