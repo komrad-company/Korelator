@@ -1,0 +1,8 @@
+{
+    "quickwit_url": "http://192.168.2.238",
+    "rules_path": "../Kompiler/examples/rules",
+    "log": {
+        "level": "error",
+        "file": "output/korelator.log"
+    }
+}

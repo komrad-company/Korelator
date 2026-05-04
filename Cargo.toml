@@ -11,6 +11,9 @@ readme = "README.md"
 repository = "https://github.com/komrad-company/"
 
 [dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 
 # Our job komrad
 khronika = { git = "https://github.com/komrad-company/Khronika.git" }
+kompiler = { git = "https://github.com/komrad-company/Kompiler.git" }

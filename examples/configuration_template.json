@@ -1,0 +1,8 @@
+{
+    "rules_path": "/etc/korelator/rules",
+    "log": {
+        "level": "error",
+        "file": "output/korelator.log",
+        "remote": "https://telemetry.korelator.org"
+    }
+}
