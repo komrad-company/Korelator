@@ -1,7 +1,9 @@
 use std::path::Path;
 
 use khronika::{debug, error, intialize_logger};
-use kompiler::{load_configuration, rules::parse_rules};
+use kompiler::rules::parse_rules;
+
+use korelator::load_configuration;
 
 fn main() {
     let configuration = load_configuration().unwrap_or_else(|err| {
