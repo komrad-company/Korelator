@@ -1,2 +1,0 @@
-{"timestamp":"2026-05-04T19:42:58.688873Z","level":"ERROR","fields":{"message":"../Kompiler/examples/rules/net_bruteforce.yml, missing field `matcher`"},"target":"kompiler::rules"}
-{"timestamp":"2026-05-04T20:12:13.661720Z","level":"ERROR","fields":{"message":"../Kompiler/examples/rules/net_bruteforce.yml, missing field `matcher`"},"target":"kompiler::rules"}
