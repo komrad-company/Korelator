@@ -3,11 +3,16 @@ name: CI
 on:
   push:
     branches: [main]
+    tags:
+      - 'v*'
   pull_request:
 
 jobs:
   security:
-    uses: komrad-company/Kompile-Konquer/.github/workflows/security-pipeline.yml@main
+    uses: komrad-company/Kontinuous-integration/.github/workflows/security-pipeline.yml@main
   pipeline:
+    permissions:
+      contents: write
     needs: security
-    uses: komrad-company/Kompile-Konquer/.github/workflows/rust-pipeline.yml@main
+    uses: komrad-company/Kontinuous-integration/.github/workflows/rust-pipeline.yml@main
+
