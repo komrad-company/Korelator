@@ -27,4 +27,4 @@ target
 
 # local configuration
 configuration.json
-output/*
+output/
