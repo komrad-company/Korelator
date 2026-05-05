@@ -3,6 +3,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use kompiler::rules::filter::Filters;
 
+mod condition;
 mod filter;
 
 pub struct EvaluationContext {
