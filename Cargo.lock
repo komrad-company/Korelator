@@ -82,11 +82,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "khronika"
+version = "0.1.0"
+source = "git+https://github.com/komrad-company/Khronika.git?tag=v1.0.2#3e349cfca6704b9974bfc0241dd0d81b0022c43c"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tracing",
+ "tracing-appender",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "kompiler"
 version = "0.1.0"
 source = "git+https://github.com/komrad-company/Kompiler.git#e04f0ca815cc8f0cb8f0982e9527811687d8cb17"
 dependencies = [
- "khronika",
+ "khronika 0.1.0 (git+https://github.com/komrad-company/Khronika.git?tag=v1.0.1)",
  "serde",
  "serde_json",
  "serde_yaml",
@@ -97,7 +109,7 @@ dependencies = [
 name = "korelator"
 version = "0.1.0"
 dependencies = [
- "khronika",
+ "khronika 0.1.0 (git+https://github.com/komrad-company/Khronika.git?tag=v1.0.2)",
  "kompiler",
  "serde",
  "serde_json",
