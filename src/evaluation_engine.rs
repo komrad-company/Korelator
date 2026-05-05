@@ -19,3 +19,6 @@ impl EvaluationContext {
 pub trait Evaluate {
     fn evaluate(&self, event: &Value, ctx: &EvaluationContext) -> bool;
 }
+
+#[cfg(test)]
+mod tests;
