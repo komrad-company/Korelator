@@ -2,6 +2,7 @@ use serde_json::from_reader;
 use std::{env, fs::File, io::BufReader};
 
 pub mod configuration;
+pub mod evaluation_engine;
 
 use kompiler::errors::UnforgivableErrors;
 
