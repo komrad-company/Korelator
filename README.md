@@ -1,69 +1,69 @@
 # Korelator
 
-> Moteur de corrélation d'évènements, de déclenchement de règles et d'envoi d'alertes — écrit en Rust.
+> Event correlation engine, rule triggering and alert dispatcher — written in Rust.
 
-Korelator est le composant central d'une chaîne de traitement d'évènements (typiquement des logs ou évènements de sécurité). Il consomme un flux d'évènements (sous forme de JSON), les confronte à un ensemble de règles déclaratives, et déclenche des alertes lorsqu'une règle est satisfaite.
+Korelator is the central component of an event processing pipeline (typically logs or security events). It consumes a stream of events (as JSON), evaluates them against a set of declarative rules, and triggers alerts when a rule is satisfied.
 
-Il fait partie de l'écosystème **komrad-company** et s'appuie sur deux briques internes :
+It is part of the **komrad-company** ecosystem and relies on two internal crates:
 
-- [`Kompiler`](https://github.com/komrad-company/Kompiler) — parsing, compilation et représentation typée des règles de corrélation, ainsi que les types d'erreurs (`UnforgivableErrors`).
-- [`Khronika`](https://github.com/komrad-company/Khronika) — système de logging / télémétrie (logs locaux + endpoint distant).
+- [`Kompiler`](https://github.com/komrad-company/Kompiler) — parsing, compilation and typed representation of correlation rules, as well as error types (`UnforgivableErrors`).
+- [`Khronika`](https://github.com/komrad-company/Khronika) — logging / telemetry system (local logs + remote endpoint).
 
 ---
 
-## Table des matières
+## Table of contents
 
-1. [À quoi ça sert](#à-quoi-ça-sert)
-2. [Architecture générale](#architecture-générale)
-3. [Structure du projet](#structure-du-projet)
+1. [Purpose](#purpose)
+2. [General architecture](#general-architecture)
+3. [Project structure](#project-structure)
 4. [Configuration](#configuration)
-5. [Le moteur d'évaluation en détail](#le-moteur-dévaluation-en-détail)
-6. [Format des évènements](#format-des-évènements)
-7. [Compilation et exécution](#compilation-et-exécution)
+5. [Evaluation engine in depth](#evaluation-engine-in-depth)
+6. [Event format](#event-format)
+7. [Build and run](#build-and-run)
 8. [Tests](#tests)
-9. [Sécurité et audit des dépendances](#sécurité-et-audit-des-dépendances)
-10. [Intégration continue](#intégration-continue)
-11. [Roadmap / état actuel](#roadmap--état-actuel)
-12. [Licence](#licence)
+9. [Security and dependency audit](#security-and-dependency-audit)
+10. [Continuous integration](#continuous-integration)
+11. [Roadmap / current status](#roadmap--current-status)
+12. [License](#license)
 
 ---
 
-## À quoi ça sert
+## Purpose
 
-Le besoin de base est simple : à partir d'un flux d'évènements (par exemple des logs stockés dans **Quickwit**), on veut pouvoir dire :
+The core need is simple: given a stream of events (e.g. logs stored in **Quickwit**), be able to say:
 
-> « Si un évènement ressemble à *ceci*, alors déclenche *cela*. »
+> "If an event looks like *this*, then trigger *that*."
 
-Korelator est l'outil qui :
+Korelator is the tool that:
 
-1. **Charge une configuration** décrivant où trouver les règles, où aller chercher les évènements, et comment se logger.
-2. **Compile les règles** (déléguées à `Kompiler`) en structures Rust exploitables (`FieldFilter`, `Filters`, etc.).
-3. **Évalue chaque évènement** contre ces règles via son moteur d'évaluation, basé sur le trait `Evaluate`.
-4. **Déclenche des actions** (alertes, triggers) quand une règle matche — partie en cours de mise en place.
+1. **Loads a configuration** describing where to find rules, where to fetch events from, and how to log.
+2. **Compiles rules** (delegated to `Kompiler`) into usable Rust structures (`FieldFilter`, `Filters`, etc.).
+3. **Evaluates each event** against those rules via its evaluation engine, built on the `Evaluate` trait.
+4. **Triggers actions** (alerts, triggers) when a rule matches — this part is being implemented.
 
-Concrètement, c'est la pièce qui transforme un volume brut d'évènements (souvent ingouvernable manuellement) en signaux exploitables pour un SOC, un outil d'observabilité, ou n'importe quel pipeline de détection.
+Concretely, it transforms a raw volume of events (often unmanageable manually) into actionable signals for a SOC, an observability tool, or any detection pipeline.
 
-### Cas d'usage typiques
+### Typical use cases
 
-- **Détection d'intrusion** : repérer dans les logs système une suite suspecte (`process_name = bash` + `parent = sshd` + `account startswith "adm"`).
-- **Surveillance applicative** : alerter quand un endpoint renvoie trop d'erreurs 5xx (`status_code >= 500` répété N fois).
-- **Conformité / audit** : tracer toute opération sensible (`action = "delete_user"` sur un compte privilégié).
-- **Corrélation multi-source** : croiser des évènements provenant de plusieurs systèmes pour reconstruire un comportement plus complexe.
+- **Intrusion detection**: spotting a suspicious sequence in system logs (`process_name = bash` + `parent = sshd` + `account startswith "adm"`).
+- **Application monitoring**: alerting when an endpoint returns too many 5xx errors (`status_code >= 500` repeated N times).
+- **Compliance / audit**: tracing every sensitive operation (`action = "delete_user"` on a privileged account).
+- **Multi-source correlation**: cross-referencing events from multiple systems to reconstruct more complex behaviour.
 
 ---
 
-## Architecture générale
+## General architecture
 
 ```
                      ┌────────────────────────────┐
-                     │   Fichiers de règles       │
-                     │   (parsés par Kompiler)    │
+                     │       Rule files           │
+                     │   (parsed by Kompiler)     │
                      └──────────────┬─────────────┘
                                     │
                                     ▼
-┌──────────────┐  évènements  ┌──────────────────────┐   alertes
+┌──────────────┐    events    ┌──────────────────────┐   alerts
 │   Quickwit   │ ───────────▶ │      Korelator       │ ───────────▶
-│  (logs/data) │     JSON     │  (moteur d'évaluation)│   (sink)
+│  (logs/data) │     JSON     │  (evaluation engine) │   (sink)
 └──────────────┘              └──────────┬───────────┘
                                          │
                                          ▼
@@ -73,70 +73,69 @@ Concrètement, c'est la pièce qui transforme un volume brut d'évènements (sou
                                   └─────┬──────┘
                                         │
                                         ▼
-                              fichier local + endpoint
-                                    distant
+                              local file + remote endpoint
 ```
 
-### Pipeline interne
+### Internal pipeline
 
-À l'intérieur de Korelator, un évènement traverse les étapes suivantes :
+Inside Korelator, an event goes through the following steps:
 
-1. **Ingestion** : un évènement JSON arrive (depuis Quickwit ou une autre source).
-2. **Désérialisation** : il est représenté en `serde_json::Value`.
-3. **Évaluation** : on passe l'évènement à chaque règle compilée. Chaque règle est composée de filtres (`FieldFilter`) qui implémentent le trait `Evaluate`.
-4. **Décision** : si une règle est satisfaite, l'action associée est déclenchée.
-5. **Logging** : Khronika trace ce qui s'est passé (niveau configurable).
+1. **Ingestion**: a JSON event arrives (from Quickwit or another source).
+2. **Deserialisation**: it is represented as `serde_json::Value`.
+3. **Evaluation**: the event is passed to each compiled rule. Each rule is composed of filters (`FieldFilter`) that implement the `Evaluate` trait.
+4. **Decision**: if a rule is satisfied, the associated action is triggered.
+5. **Logging**: Khronika traces what happened (configurable level).
 
 ---
 
-## Structure du projet
+## Project structure
 
 ```
 Korelator/
-├── Cargo.toml                          # manifeste du crate
-├── deny.toml                           # politique cargo-deny (licences, sources, advisories)
+├── Cargo.toml                          # crate manifest
+├── deny.toml                           # cargo-deny policy (licences, sources, advisories)
 ├── LICENSE                             # AGPL-3.0-or-later
-├── README.md                           # ce fichier
-├── .github/workflows/ci.yml            # CI mutualisée (Kontinuous-integration)
+├── README.md                           # this file
+├── .github/workflows/ci.yml            # CI using shared Kontinuous-integration workflows
 ├── examples/
-│   └── configuration_template.json     # exemple de configuration
+│   └── configuration_template.json     # example configuration
 └── src/
-    ├── lib.rs                          # API publique du crate (load_configuration)
-    ├── main.rs                         # binaire : entrypoint
-    ├── configuration.rs                # struct Configuration (désérialisée depuis JSON)
-    ├── evaluation_engine.rs            # trait Evaluate + EvaluationContext
+    ├── lib.rs                          # crate public API (load_configuration)
+    ├── main.rs                         # binary entrypoint
+    ├── configuration.rs                # Configuration struct (deserialised from JSON)
+    ├── evaluation_engine.rs            # Evaluate trait + EvaluationContext
     └── evaluation_engine/
-        └── filter.rs                   # impl Evaluate pour FieldFilter + tests
+        └── filter.rs                   # impl Evaluate for FieldFilter + tests
 ```
 
-### Modules du crate
+### Crate modules
 
-| Module | Fichier | Rôle |
+| Module | File | Role |
 |---|---|---|
-| `configuration` | `src/configuration.rs` | Définit la struct `Configuration` désérialisée depuis le fichier JSON. |
-| `evaluation_engine` | `src/evaluation_engine.rs` | Définit le trait `Evaluate` et le `EvaluationContext` qui porte les filtres partagés (`Arc<HashMap<String, Filters>>`). |
-| `evaluation_engine::filter` | `src/evaluation_engine/filter.rs` | Implémente `Evaluate` pour `FieldFilter` — la logique de comparaison champ ↔ valeurs attendues. |
-| `lib.rs` | `src/lib.rs` | Expose `load_configuration()`, le point d'entrée pour charger la conf depuis disque. |
-| `main.rs` | `src/main.rs` | Binaire : charge la conf, initialise le logger, parse les règles. |
+| `configuration` | `src/configuration.rs` | Defines the `Configuration` struct deserialised from the JSON file. |
+| `evaluation_engine` | `src/evaluation_engine.rs` | Defines the `Evaluate` trait and the `EvaluationContext` carrying shared filters (`Arc<HashMap<String, Filters>>`). |
+| `evaluation_engine::filter` | `src/evaluation_engine/filter.rs` | Implements `Evaluate` for `FieldFilter` — the field ↔ expected values comparison logic. |
+| `lib.rs` | `src/lib.rs` | Exposes `load_configuration()`, the entry point for loading config from disk. |
+| `main.rs` | `src/main.rs` | Binary: loads config, initialises logger, parses rules. |
 
-### Dépendances
+### Dependencies
 
-| Crate | Version / Source | Rôle |
+| Crate | Version / Source | Role |
 |---|---|---|
-| `serde` | `1` (features = `derive`) | Sérialisation/désérialisation. |
-| `serde_json` | `1` | Manipulation des évènements et de la configuration JSON. |
-| `khronika` | git (komrad-company), tag `v1.0.2` | Logger / télémétrie. |
-| `kompiler` | git (komrad-company) | Parsing et types des règles. |
+| `serde` | `1` (features = `derive`) | Serialisation/deserialisation. |
+| `serde_json` | `1` | Manipulation of events and JSON configuration. |
+| `khronika` | git (komrad-company), tag `v1.0.2` | Logger / telemetry. |
+| `kompiler` | git (komrad-company) | Rule parsing and types. |
 
-L'edition Rust utilisée est `2024` (toolchain récente requise).
+Rust edition used: `2024` (recent toolchain required).
 
 ---
 
 ## Configuration
 
-La configuration est chargée depuis un fichier JSON par la fonction `load_configuration()` exposée dans `lib.rs`. Le chemin est lu depuis la variable d'environnement `CONFIGURATION_PATH`, avec `configuration.json` (dans le répertoire courant) comme fallback.
+The configuration is loaded from a JSON file by `load_configuration()` exposed in `lib.rs`. The path is read from the `CONFIGURATION_PATH` environment variable, with `configuration.json` (in the current directory) as fallback.
 
-### Algorithme de chargement
+### Loading algorithm
 
 ```rust
 pub fn load_configuration() -> Result<Configuration, UnforgivableErrors> {
@@ -153,16 +152,16 @@ pub fn load_configuration() -> Result<Configuration, UnforgivableErrors> {
 }
 ```
 
-Deux cas d'erreur fatals :
+Two fatal error cases:
 
-| Erreur | Cause | Action |
+| Error | Cause | Action |
 |---|---|---|
-| `MissingConfigurationFile { path }` | Le fichier n'existe pas / pas accessible. | Le binaire affiche `Fatal Error: ...` sur `stderr` et sort avec le code `1`. |
-| `InvalidFormat(...)` | Le JSON est mal formé ou un champ requis est manquant. | Idem : `exit(1)`. |
+| `MissingConfigurationFile { path }` | File does not exist or is not accessible. | Binary prints `Fatal Error: ...` on `stderr` and exits with code `1`. |
+| `InvalidFormat(...)` | JSON is malformed or a required field is missing. | Same: `exit(1)`. |
 
 ### Format
 
-Exemple minimal (et plus complet que `examples/configuration_template.json`) :
+Minimal example (more complete than `examples/configuration_template.json`):
 
 ```json
 {
@@ -176,28 +175,28 @@ Exemple minimal (et plus complet que `examples/configuration_template.json`) :
 }
 ```
 
-### Champs
+### Fields
 
-| Champ | Type | Obligatoire | Description |
+| Field | Type | Required | Description |
 |---|---|---|---|
-| `quickwit_url` | `string` | ✅ | URL de l'instance Quickwit qui sert de source d'évènements. |
-| `rules_path` | `string` | ✅ | Chemin (fichier ou dossier) où trouver les règles à parser. Passé directement à `kompiler::rules::parse_rules`. |
-| `log` | `TelemetryConfiguration` (Khronika) | ✅ | Configuration du logger. |
-| `log.level` | `string` | ✅ | Niveau minimum (`error`, `warn`, `info`, `debug`, `trace`). |
-| `log.file` | `string` | ✅ | Chemin du fichier de log local. |
-| `log.remote` | `string` | ✅ | Endpoint distant pour l'envoi de la télémétrie. |
+| `quickwit_url` | `string` | ✅ | URL of the Quickwit instance used as event source. |
+| `rules_path` | `string` | ✅ | Path (file or directory) where rules are found. Passed directly to `kompiler::rules::parse_rules`. |
+| `log` | `TelemetryConfiguration` (Khronika) | ✅ | Logger configuration. |
+| `log.level` | `string` | ✅ | Minimum level (`error`, `warn`, `info`, `debug`, `trace`). |
+| `log.file` | `string` | ✅ | Path of the local log file. |
+| `log.remote` | `string` | ✅ | Remote endpoint for telemetry forwarding. |
 
-> ⚠️ **Note sur le template d'exemple** : le fichier `examples/configuration_template.json` ne contient pas encore le champ `quickwit_url` qui est pourtant requis par la struct. La désérialisation échouera tant qu'il n'est pas ajouté. À corriger soit en complétant le template, soit en rendant le champ optionnel (`Option<String>`) dans `configuration.rs`.
+> ⚠️ **Note on the example template**: `examples/configuration_template.json` is missing the `quickwit_url` field which is required by the struct. Deserialisation will fail until it is added. Either complete the template or make the field optional (`Option<String>`) in `configuration.rs`.
 
-> 🔒 **Note sur le `.gitignore`** : `configuration.json` et `output/` sont ignorés par Git, ce qui évite de committer une conf locale ou des logs.
+> The `configuration.json` file and the `output/` directory are git-ignored, preventing local config or logs from being committed.
 
 ---
 
-## Le moteur d'évaluation en détail
+## Evaluation engine in depth
 
-### Le trait `Evaluate`
+### The `Evaluate` trait
 
-C'est le contrat central :
+This is the central contract:
 
 ```rust
 pub trait Evaluate {
@@ -205,7 +204,7 @@ pub trait Evaluate {
 }
 ```
 
-Toute structure capable d'être confrontée à un évènement implémente ce trait. À ce jour, l'implémentation existe pour `FieldFilter`, mais le design permet de l'étendre à des compositions de filtres, des règles entières, etc.
+Any structure that can be matched against an event implements this trait. Currently the implementation exists for `FieldFilter`, but the design allows extension to filter compositions, full rules, etc.
 
 ### `EvaluationContext`
 
@@ -215,115 +214,115 @@ pub struct EvaluationContext {
 }
 ```
 
-Le contexte d'évaluation transporte une map de filtres nommés, partageable entre threads via `Arc`. Cela permet à un filtre d'en référencer un autre par nom (par exemple un filtre composite qui réutilise des sous-filtres déclarés ailleurs).
+The evaluation context carries a map of named filters, shareable across threads via `Arc`. This allows a filter to reference another by name (e.g. a composite filter reusing sub-filters declared elsewhere).
 
-### Évaluation d'un `FieldFilter`
+### Evaluating a `FieldFilter`
 
-Un `FieldFilter` (défini dans `Kompiler`) a trois éléments :
+A `FieldFilter` (defined in `Kompiler`) has three elements:
 
 ```rust
 FieldFilter {
-    field: String,            // nom du champ JSON à inspecter
-    condition: FilterTypes,   // opérateur de comparaison
-    values: Vec<Types>,       // liste de valeurs attendues
+    field: String,            // JSON field name to inspect
+    condition: FilterTypes,   // comparison operator
+    values: Vec<Types>,       // list of expected values
 }
 ```
 
-L'algorithme appliqué :
+The algorithm:
 
-1. Lire `event[field]`. S'il est absent → `false`.
-2. Pour chaque valeur attendue dans `values`, tester si `(condition, valeur_du_champ, valeur_attendue)` matche.
-3. Retourner `true` dès qu'une valeur matche (**OR implicite** sur `values`).
+1. Read `event[field]`. If absent → `false`.
+2. For each expected value in `values`, test if `(condition, field_value, expected_value)` matches.
+3. Return `true` as soon as one value matches (**implicit OR** over `values`).
 
-### Conditions supportées
+### Supported conditions
 
-| Condition | Type d'opérande | Sémantique |
+| Condition | Operand type | Semantics |
 |---|---|---|
-| `Contains` | String | Le champ contient la sous-chaîne |
-| `Startswith` | String | Le champ commence par la chaîne |
-| `Endswith` | String | Le champ se termine par la chaîne |
-| `Exact` | String | Égalité de chaînes |
-| `Exact` | Integer | Égalité d'entiers (i64) |
-| `Gt` | Integer | Strictement supérieur |
-| `Gte` | Integer | Supérieur ou égal |
-| `Lt` | Integer | Strictement inférieur |
-| `Lte` | Integer | Inférieur ou égal |
+| `Contains` | String | Field contains the substring |
+| `Startswith` | String | Field starts with the string |
+| `Endswith` | String | Field ends with the string |
+| `Exact` | String | String equality |
+| `Exact` | Integer | Integer equality (i64) |
+| `Gt` | Integer | Strictly greater than |
+| `Gte` | Integer | Greater than or equal |
+| `Lt` | Integer | Strictly less than |
+| `Lte` | Integer | Less than or equal |
 
-Pour faire un AND, il faut composer plusieurs filtres au niveau supérieur (logique gérée par les règles compilées par Kompiler).
+To AND conditions, compose multiple filters at the rule level (logic handled by Kompiler-compiled rules).
 
-### Cas particuliers et garanties
+### Edge cases and guarantees
 
-- **Champ absent** dans l'évènement → `false` (silencieux, pas d'erreur).
-- **Type incompatible** (ex. condition numérique sur un champ string, ou inversement) → `false`.
-- **Aucune valeur attendue** (`values` vide) → `false` (le `.any()` sur un itérateur vide renvoie `false`).
-- L'évaluation est **pure** : pas d'effet de bord, pas d'allocation cachée. Elle peut être appelée en boucle serrée sans surprise.
-- L'`EvaluationContext` étant partagé par `Arc`, l'évaluation est sûre à paralléliser.
+- **Absent field** in the event → `false` (silent, no error).
+- **Incompatible type** (e.g. numeric condition on a string field, or vice versa) → `false`.
+- **No expected values** (`values` empty) → `false` (`.any()` on an empty iterator returns `false`).
+- Evaluation is **pure**: no side effects, no hidden allocations. Safe to call in a tight loop.
+- `EvaluationContext` is shared via `Arc`, so evaluation is safe to parallelise.
 
 ---
 
-## Compilation et exécution
+## Build and run
 
-### Pré-requis
+### Prerequisites
 
-- **Accès Git** aux dépôts `komrad-company/Khronika` et `komrad-company/Kompiler` (publics ou via SSH selon la politique du projet).
+- Git access to `komrad-company/Khronika` and `komrad-company/Kompiler` repositories.
 
 ### Build
 
 ```bash
-# Build debug (rapide, non optimisé)
+# Debug build (fast, unoptimised)
 cargo build
 
-# Build release (optimisé)
+# Release build (optimised)
 cargo build --release
 ```
 
-Le binaire produit se trouve dans `target/release/korelator` (ou `target/debug/korelator`).
+The produced binary is at `target/release/korelator` (or `target/debug/korelator`).
 
-### Lancement
+### Run
 
 ```bash
-# Avec le chemin par défaut (./configuration.json)
+# Using the default path (./configuration.json)
 cargo run
 ```
 
-### Codes de sortie
+### Exit codes
 
-| Code | Signification |
+| Code | Meaning |
 |---|---|
-| `0` | Sortie normale. |
-| `1` | Erreur fatale au chargement de la configuration (fichier absent, JSON invalide). |
-| `2` | Erreur fatale au parsing des règles (`UnforgivableErrors` remontée par Kompiler). |
+| `0` | Normal exit. |
+| `1` | Fatal error loading configuration (file missing, invalid JSON). |
+| `2` | Fatal error parsing rules (`UnforgivableErrors` raised by Kompiler). |
 
-### Comportement actuel du binaire (`main.rs`)
+### Current binary behaviour (`main.rs`)
 
-Étape par étape :
+Step by step:
 
-1. **`load_configuration()`** : lit et désérialise le fichier de conf.
-   - Si erreur → `eprintln!` + `exit(1)`.
-2. **`intialize_logger(configuration.log)`** : initialise Khronika avec la conf de télémétrie.
-3. **`debug!("Korelator successfully initiated")`** : trace de démarrage.
-4. **`parse_rules(rules_path)`** : Kompiler charge et compile les règles depuis `rules_path`.
-   - Si erreur → `error!` + `exit(2)`.
-5. **`dbg!(parsed_rules.len())`** : affiche pour le moment juste le nombre de règles parsées.
+1. **`load_configuration()`**: reads and deserialises the config file.
+   - On error → `eprintln!` + `exit(1)`.
+2. **`intialize_logger(configuration.log)`**: initialises Khronika with the telemetry config.
+3. **`debug!("Korelator successfully initiated")`**: startup trace.
+4. **`parse_rules(rules_path)`**: Kompiler loads and compiles rules from `rules_path`.
+   - On error → `error!` + `exit(2)`.
+5. **`dbg!(parsed_rules.len())`**: currently just prints the number of parsed rules.
 
-> La boucle d'ingestion d'évènements et le déclenchement effectif des alertes ne sont **pas encore branchés** dans `main.rs`. La fondation est posée (config + règles + moteur d'évaluation), il reste à connecter la source (Quickwit) et le sink (alertes).
+> The event ingestion loop and actual alert triggering are **not yet wired** in `main.rs`. The foundation is in place (config + rules + evaluation engine); connecting the Quickwit source and the alert sink is still to come.
 
 ---
 
 ## Tests
 
-Les tests unitaires actuels couvrent les évaluations de filtres dans `src/evaluation_engine/filter.rs` :
+Current unit tests cover filter evaluations in `src/evaluation_engine/filter.rs`:
 
-| Test | Ce qu'il vérifie |
+| Test | What it verifies |
 |---|---|
-| `contains_matches_substring` | `Contains` matche bien sur sous-chaîne, et ne matche pas sur valeur absente. |
-| `contains_multiple_values_is_or` | Plusieurs valeurs → OR implicite. |
-| `startswith_matches_prefix` | `Startswith` matche un préfixe et pas un suffixe. |
-| `exact_integer_matches` | `Exact` sur entier. |
-| `gt_integer_matches` | `Gt` strict, donc `5` ne matche pas pour `> 5`. |
-| `missing_field_returns_false` | Un champ absent renvoie `false` sans paniquer. |
+| `contains_matches_substring` | `Contains` matches on substring, and does not match on absent value. |
+| `contains_multiple_values_is_or` | Multiple values → implicit OR. |
+| `startswith_matches_prefix` | `Startswith` matches a prefix and not a suffix. |
+| `exact_integer_matches` | `Exact` on integer. |
+| `gt_integer_matches` | `Gt` is strict, so `5` does not match for `> 5`. |
+| `missing_field_returns_false` | An absent field returns `false` without panicking. |
 
-Lancer la suite :
+Run the suite:
 
 ```bash
 cargo test
@@ -331,34 +330,34 @@ cargo test
 
 ---
 
-## Sécurité et audit des dépendances
+## Security and dependency audit
 
-Le projet utilise [`cargo-deny`](https://github.com/EmbarkStudios/cargo-deny) pour auditer les dépendances. La politique se trouve dans `deny.toml`.
+The project uses [`cargo-deny`](https://github.com/EmbarkStudios/cargo-deny) to audit dependencies. The policy is in `deny.toml`.
 
 ```bash
 cargo deny check
 ```
 
-### Politique en place
+### Policy in place
 
-- **Cible** : `x86_64-unknown-linux-gnu`.
-- **Avis de sécurité** (`[advisories]`) : version 2, `yanked = "deny"` — toute crate yanked est refusée.
-- **Licences autorisées** (`[licenses]`, confiance ≥ 0.90) : MIT, Apache-2.0, BSD-3-Clause, ISC, 0BSD, Zlib, AGPL-3.0, AGPL-3.0-or-later, Unicode-3.0.
-- **Bans** :
-  - Versions multiples → `warn`.
-  - Wildcards de version → `warn`.
-- **Sources** :
-  - Registries inconnus → `deny`.
-  - Dépôts Git inconnus → `deny`.
-  - Seuls autorisés : `https://github.com/rust-lang/crates.io-index`, `Khronika.git`, `Kompiler.git`.
+- **Target**: `x86_64-unknown-linux-gnu`.
+- **Security advisories** (`[advisories]`): version 2, `yanked = "deny"` — any yanked crate is rejected.
+- **Allowed licences** (`[licenses]`, confidence ≥ 0.90): MIT, Apache-2.0, BSD-3-Clause, ISC, 0BSD, Zlib, AGPL-3.0, AGPL-3.0-or-later, Unicode-3.0.
+- **Bans**:
+  - Multiple versions → `warn`.
+  - Version wildcards → `warn`.
+- **Sources**:
+  - Unknown registries → `deny`.
+  - Unknown Git repositories → `deny`.
+  - Allowed only: `https://github.com/rust-lang/crates.io-index`, `Khronika.git`, `Kompiler.git`.
 
-Cela garantit qu'aucune dépendance externe non identifiée ne peut entrer dans le projet sans modification explicite de `deny.toml`.
+This ensures no unidentified external dependency can enter the project without an explicit change to `deny.toml`.
 
 ---
 
-## Intégration continue
+## Continuous integration
 
-La CI vit dans `.github/workflows/ci.yml` et délègue à des workflows partagés du dépôt **Kontinuous-integration** :
+The CI lives in `.github/workflows/ci.yml` and delegates to shared workflows from the **Kontinuous-integration** repository:
 
 ```yaml
 on:
@@ -377,29 +376,30 @@ jobs:
     uses: komrad-company/Kontinuous-integration/.github/workflows/rust-pipeline.yml@main
 ```
 
-- Le job **`security`** lance la pipeline de sécurité (typiquement `cargo deny`, audits de dépendances, scans).
-- Le job **`pipeline`** lance la pipeline Rust standard (build, tests, lint, releases sur tag `v*`) — il dépend du succès du job sécurité.
+- The **`security`** job runs the security pipeline (gitleaks secret scanning, `cargo deny` audit).
+- The **`pipeline`** job runs the standard Rust pipeline (build, tests, lint, releases on `v*` tags) — it depends on the security job succeeding.
 
 ---
 
-## Roadmap / état actuel
+## Roadmap / current status
 
-État au moment de la rédaction :
+Done:
+- ✅ JSON configuration loading + env var override.
+- ✅ Khronika logger initialisation.
+- ✅ Rule parsing via Kompiler.
+- ✅ `Evaluate` trait + impl for `FieldFilter`.
+- ✅ Unit tests on filters.
+- ✅ Shared CI + `cargo-deny` policy.
 
-- ✅ Chargement de configuration (JSON + variable d'env).
-- ✅ Initialisation du logger Khronika.
-- ✅ Parsing des règles via Kompiler.
-- ✅ Trait `Evaluate` + impl pour `FieldFilter`.
-- ✅ Tests unitaires sur les filtres.
-- ✅ CI mutualisée + politique `cargo-deny`.
-- ⏳ Implémentation des règles composites (au-delà de `FieldFilter` seul).
-- ⚠️ Champ `quickwit_url` requis par la conf mais absent du template d'exemple.
-- ⏳ Connexion à Quickwit pour l'ingestion d'évènements.
-- ⏳ Module de déclenchement / envoi d'alertes (le « trigger and alert sender »).
-- ⏳ Boucle d'évènements dans `main.rs` (actuellement on ne fait que compter les règles parsées).
+Pending:
+- ⏳ Composite rule evaluation (beyond `FieldFilter` alone).
+- ⚠️ `quickwit_url` field required by config struct but missing from the example template.
+- ⏳ Quickwit connection for event ingestion.
+- ⏳ Alert dispatch / trigger sink module.
+- ⏳ Event loop in `main.rs` (currently just counts parsed rules).
 
 ---
 
-## Licence
+## License
 
-Le projet est distribué sous **AGPL-3.0-or-later**. Voir le fichier [`LICENSE`](LICENSE) pour le texte complet.
+Distributed under **AGPL-3.0-or-later**. See [`LICENSE`](LICENSE) for the full text.
