@@ -9,7 +9,6 @@ impl Evaluate for FieldFilter {
         let Some(event_val) = event.get(&self.field) else {
             return false;
         };
-        // values are implicitly OR-ed
         self.values
             .iter()
             .any(|expected| match (&self.condition, event_val, expected) {

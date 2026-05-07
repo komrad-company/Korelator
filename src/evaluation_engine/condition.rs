@@ -13,7 +13,7 @@ impl Evaluate for Condition {
                 let Some(filters) = ctx.filters.get(name) else {
                     return false;
                 };
-                // Filters is a Vec<FieldFilter>, implicitly OR-ed across fields
+
                 filters.0.iter().any(|ff| ff.evaluate(event, ctx))
             }
         }

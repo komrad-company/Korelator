@@ -36,11 +36,8 @@ fn or_matches_if_any_filter_matches() {
         Box::new(Condition::Filter("user".into())),
     );
 
-    // matches via the process filter
     assert!(condition.evaluate(&json!({ "process_name": "bash_shell" }), &ctx));
-    // matches via the user filter
     assert!(condition.evaluate(&json!({ "username": "admin_user" }), &ctx));
-    // no match
     assert!(!condition.evaluate(&json!({ "username": "bob" }), &ctx));
 }
 
