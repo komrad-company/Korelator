@@ -1,8 +1,13 @@
 use serde_json::from_reader;
 use std::{env, fs::File, io::BufReader};
 
+pub mod alert;
 pub mod configuration;
 pub mod evaluation_engine;
+
+pub use alert::{Alert, AlertSink, StderrJsonSink};
+pub use evaluation_engine::PreparedRule;
+pub use kompiler::RuleLevel;
 
 use kompiler::errors::UnforgivableErrors;
 
