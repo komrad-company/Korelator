@@ -1,5 +1,5 @@
-pub mod quickwit;
-pub mod stdin;
+pub(crate) mod quickwit;
+pub(crate) mod stdin;
 
 pub use quickwit::QuickwitSource;
 pub use stdin::StdinSource;
