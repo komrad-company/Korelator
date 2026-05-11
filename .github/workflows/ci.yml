@@ -2,17 +2,33 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: '*'
     tags:
       - 'v*'
   pull_request:
 
 jobs:
   security:
-    uses: komrad-company/Kontinuous-integration/.github/workflows/security-pipeline.yml@main
+    uses: komrad-company/Kontinuous-integration/.github/workflows/security-pipeline.yml@develop
+
+  rust-security:
+    uses: komrad-company/Kontinuous-integration/.github/workflows/rust-security-pipeline.yml@develop
+
   pipeline:
     permissions:
       contents: write
-    needs: security
-    uses: komrad-company/Kontinuous-integration/.github/workflows/rust-pipeline.yml@main
+    needs:
+      - security
+      - rust-security
+    uses: komrad-company/Kontinuous-integration/.github/workflows/rust-pipeline.yml@develop
+
+  notify:
+    needs:
+      - pipeline
+    if: ${{ always() }}
+    uses: komrad-company/Kontinuous-integration/.github/workflows/notify-pipeline.yml@develop
+    with:
+      status: ${{ contains(needs.*.result, 'failure') && 'failure' || contains(needs.*.result, 'cancelled') && 'cancelled' || 'success' }}
+    secrets:
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
