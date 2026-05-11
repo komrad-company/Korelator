@@ -6,8 +6,8 @@ use crate::evaluation_engine::{Evaluate, EvaluationContext};
 impl Evaluate for Condition {
     fn evaluate(&self, event: &Value, ctx: &EvaluationContext) -> bool {
         match self {
-            Condition::Or(left, rigth) => left.evaluate(event, ctx) || rigth.evaluate(event, ctx),
-            Condition::And(left, rigth) => left.evaluate(event, ctx) && rigth.evaluate(event, ctx),
+            Condition::Or(left, right) => left.evaluate(event, ctx) || right.evaluate(event, ctx),
+            Condition::And(left, right) => left.evaluate(event, ctx) && right.evaluate(event, ctx),
             Condition::Not(condition) => !condition.evaluate(event, ctx),
             Condition::Filter(name) => {
                 let Some(filters) = ctx.filters.get(name) else {
