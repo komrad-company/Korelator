@@ -3,7 +3,9 @@ use std::collections::HashMap;
 use serde_json::json;
 
 use kompiler::RuleLevel;
-use kompiler::{AggregationType, Condition, FieldFilter, FilterTypes, Filters, Matcher, Rule, Types};
+use kompiler::{
+    AggregationType, Condition, FieldFilter, FilterTypes, Filters, Matcher, Rule, Types,
+};
 
 use crate::PreparedRule;
 
@@ -12,6 +14,7 @@ fn make_rule(matcher: Matcher) -> Rule {
         id: "rule-test".into(),
         title: "Test rule".into(),
         level: RuleLevel::High,
+
         description: None,
         tags: None,
         matcher,
