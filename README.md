@@ -6,12 +6,20 @@
 Korelator is the correlation engine of the Komrad ecosystem. It consumes a stream of JSON events from Quickwit, evaluates each one against a set of declarative detection rules, and triggers alerts when a rule is satisfied. It consumes [Kompiler](https://github.com/komrad-company/Kompiler) for rule parsing and [Khronika](https://github.com/komrad-company/Khronika) for logging. Nothing else enters. Nothing else leaves without scrutiny.
 
 ```
-Quickwit (JSON events)
+JSON events (stdin for now — Quickwit ingestion pending)
     └──► Korelator (evaluation engine)
               ├── Kompiler   (rule parsing — Vec<Rule>)
               ├── Khronika   (logging — every decision is traced)
-              └──► alert sink  [pending]
+              └──► AlertSink (stderr JSON — pluggable trait)
 ```
+
+The binary reads one JSON event per line from **stdin**, evaluates every rule
+against every event, and emits an [`Alert`](#public-types) for each match
+through the configured [`AlertSink`](#public-types). Malformed JSON lines are
+skipped with a warning; an empty line is ignored.
+
+Direct Quickwit ingestion is not yet wired — the stdin loop is the temporary
+event source until that lands.
 
 ---
 
@@ -55,10 +63,14 @@ let config = load_configuration()?;
 | Type | Role |
 |---|---|
 | `Configuration` | Deserialised runtime configuration |
+| `PreparedRule` | A parsed [`kompiler::Rule`] with its [`EvaluationContext`] built once at load time. Built via `From<Rule>`. Call `fires_on(&event)` to check the rule, `to_alert(event)` to materialise an `Alert`. |
+| `Alert` | One detection record: `rule_id`, `title`, `level`, `event`, `timestamp_unix`. Serialises to JSON. |
+| `AlertSink` | Trait — `fn emit(&self, &Alert)`. `Send + Sync`, ready to share across threads. |
+| `StderrJsonSink` | Default sink — writes one JSON alert per line on stderr. |
 
 ### `Evaluate` trait
 
-The evaluation contract. Any structure that can be matched against a JSON event implements it.
+The evaluation contract for sub-rule fragments. Any structure that can be matched against a JSON event implements it.
 
 ```rust
 pub trait Evaluate {
@@ -66,7 +78,14 @@ pub trait Evaluate {
 }
 ```
 
-`EvaluationContext` carries shared named filters via `Arc<HashMap<String, Filters>>` — safe to share across threads. Currently implemented for `FieldFilter`. Returns `true` on the first matching value — implicit OR over the `values` list.
+`EvaluationContext` carries shared named filters via `Arc<HashMap<String, Filters>>` — safe to share across threads. Implemented for `FieldFilter` and `Condition`. Returns `true` on the first matching value — implicit OR over the `values` list.
+
+### Matcher support
+
+| Matcher | Status |
+|---|---|
+| `Single` | ✅ Implemented — fires on every event satisfying the condition |
+| `Threshold` | ⏳ Not yet implemented — rules using it are loaded but never fire; a warning is logged on each event |
 
 ### Exit codes
 

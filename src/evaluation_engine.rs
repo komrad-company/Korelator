@@ -5,6 +5,9 @@ use kompiler::rules::filter::Filters;
 
 mod condition;
 mod filter;
+mod rule;
+
+pub use rule::PreparedRule;
 
 pub struct EvaluationContext {
     pub filters: Arc<HashMap<String, Filters>>,
