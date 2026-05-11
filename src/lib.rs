@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 use serde_json::from_reader;
 use std::{env, fs::File, io::BufReader};
 
