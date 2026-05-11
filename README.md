@@ -82,6 +82,8 @@ let config = load_configuration()?;
 | `Alert` | One detection record: `rule_id`, `title`, `level`, `event`, `timestamp_unix`. Serialises to JSON. |
 | `AlertSink` | Trait — `fn emit(&self, &Alert)`. `Send + Sync`, ready to share across threads. |
 | `StderrJsonSink` | Default sink — writes one JSON alert per line on stderr. |
+| `Evaluate` | Trait — `fn evaluate(&self, &Value, &EvaluationContext) -> bool`. Evaluation contract for rule fragments. |
+| `EvaluationContext` | Carries named filters via `Arc<HashMap<String, Filters>>` — safe to share across threads. |
 
 ### `Evaluate` trait
 
