@@ -3,23 +3,17 @@
 > *"An event unexamined is a threat undetected. The collective examines everything."*
 > — Komrad Engineering Collective, 2026
 
-Korelator is the correlation engine of the Komrad ecosystem. It consumes a stream of JSON events from Quickwit, evaluates each one against a set of declarative detection rules, and triggers alerts when a rule is satisfied. It consumes [Kompiler](https://github.com/komrad-company/Kompiler) for rule parsing and [Khronika](https://github.com/komrad-company/Khronika) for logging. Nothing else enters. Nothing else leaves without scrutiny.
+Korelator is the correlation engine of the Komrad ecosystem. It consumes a stream of JSON events, evaluates each one against a set of declarative detection rules, and triggers alerts when a rule is satisfied. It consumes [Kompiler](https://github.com/komrad-company/Kompiler) for rule parsing and [Khronika](https://github.com/komrad-company/Khronika) for logging. Nothing else enters. Nothing else leaves without scrutiny.
 
 ```
-JSON events (stdin for now — Quickwit ingestion pending)
+JSON events (stdin | Quickwit)
     └──► Korelator (evaluation engine)
               ├── Kompiler   (rule parsing — Vec<Rule>)
               ├── Khronika   (logging — every decision is traced)
               └──► AlertSink (stderr JSON — pluggable trait)
 ```
 
-The binary reads one JSON event per line from **stdin**, evaluates every rule
-against every event, and emits an [`Alert`](#public-types) for each match
-through the configured [`AlertSink`](#public-types). Malformed JSON lines are
-skipped with a warning; an empty line is ignored.
-
-Direct Quickwit ingestion is not yet wired — the stdin loop is the temporary
-event source until that lands.
+The binary reads one JSON event per line from the configured datasource, evaluates every rule against every event, and emits an [`Alert`](#public-types) for each match through the configured [`AlertSink`](#public-types). Malformed JSON lines are skipped with a warning; an empty line is ignored.
 
 ---
 
@@ -27,9 +21,29 @@ event source until that lands.
 
 Korelator reads its configuration from a JSON file. The path is resolved from the `CONFIGURATION_PATH` environment variable, falling back to `configuration.json` in the working directory.
 
+**stdin** — reads JSON events line by line from standard input:
+
 ```json
 {
-    "quickwit_url": "http://quickwit.internal:7280",
+    "datasource": "stdin",
+    "rules_path": "/etc/korelator/rules",
+    "log": {
+        "level": "error",
+        "file": "output/korelator.log"
+    }
+}
+```
+
+**Quickwit** — polls a Quickwit index, paginating with `search_after`:
+
+```json
+{
+    "datasource": {
+        "quickwit": {
+            "url": "http://quickwit.internal:7280",
+            "index": "logs"
+        }
+    },
     "rules_path": "/etc/korelator/rules",
     "log": {
         "level": "error",
@@ -40,7 +54,7 @@ Korelator reads its configuration from a JSON file. The path is resolved from th
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `quickwit_url` | `string` | ✅ | Quickwit instance URL — event source |
+| `datasource` | `"stdin"` \| `{ "quickwit": { "url", "index" } }` | ✅ | Event source |
 | `rules_path` | `string` | ✅ | Path to rule files, passed directly to `kompiler::parse_rules` |
 | `log` | `TelemetryConfiguration` | ✅ | Khronika logger configuration |
 
@@ -63,6 +77,7 @@ let config = load_configuration()?;
 | Type | Role |
 |---|---|
 | `Configuration` | Deserialised runtime configuration |
+| `DatasourceType` | Enum — `Stdin` or `Quickwit { url, index }`. Drives source selection at startup. |
 | `PreparedRule` | A parsed [`kompiler::Rule`] with its [`EvaluationContext`] built once at load time. Built via `From<Rule>`. Call `fires_on(&event)` to check the rule, `to_alert(event)` to materialise an `Alert`. |
 | `Alert` | One detection record: `rule_id`, `title`, `level`, `event`, `timestamp_unix`. Serialises to JSON. |
 | `AlertSink` | Trait — `fn emit(&self, &Alert)`. `Send + Sync`, ready to share across threads. |
@@ -94,6 +109,7 @@ pub trait Evaluate {
 | `0` | Normal exit |
 | `1` | Fatal error loading configuration |
 | `2` | Fatal error parsing rules |
+| `3` | Fatal datasource stream error |
 
 ---
 

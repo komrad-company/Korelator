@@ -1,4 +1,10 @@
 {
+    "datasource": {
+        "quickwit": {
+            "url": "http://<host>:<port>",
+            "index": "<index-name>"
+        }
+    },
     "rules_path": "/etc/korelator/rules",
     "log": {
         "level": "error",
