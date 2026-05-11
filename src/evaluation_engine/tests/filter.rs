@@ -1,7 +1,7 @@
 use serde_json::json;
 use std::collections::HashMap;
 
-use kompiler::rules::filter::{FieldFilter, FilterTypes, Types};
+use kompiler::{FieldFilter, FilterTypes, Types};
 
 use crate::evaluation_engine::{Evaluate, EvaluationContext};
 

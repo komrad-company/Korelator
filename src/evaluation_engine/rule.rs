@@ -4,10 +4,7 @@ use serde_json::Value;
 
 use khronika::warn;
 use kompiler::RuleLevel;
-use kompiler::rules::Rule;
-use kompiler::rules::condition::Condition;
-use kompiler::rules::filter::{FieldFilter, Filters};
-use kompiler::rules::matcher::Matcher;
+use kompiler::{Condition, FieldFilter, Filters, Matcher, Rule};
 
 use crate::alert::Alert;
 use crate::evaluation_engine::{Evaluate, EvaluationContext};

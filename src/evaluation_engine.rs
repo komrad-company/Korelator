@@ -1,7 +1,7 @@
 use serde_json::Value;
 use std::{collections::HashMap, sync::Arc};
 
-use kompiler::rules::filter::Filters;
+use kompiler::Filters;
 
 mod condition;
 mod filter;

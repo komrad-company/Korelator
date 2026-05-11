@@ -1,4 +1,4 @@
-use kompiler::rules::condition::Condition;
+use kompiler::Condition;
 use serde_json::Value;
 
 use crate::evaluation_engine::{Evaluate, EvaluationContext};

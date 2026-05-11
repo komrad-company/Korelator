@@ -4,7 +4,7 @@ use std::path::Path;
 use serde_json::Value;
 
 use khronika::{debug, error, info, intialize_logger, warn};
-use kompiler::rules::parse_rules;
+use kompiler::parse_rules;
 
 use korelator::{AlertSink, PreparedRule, StderrJsonSink, load_configuration};
 

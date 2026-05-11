@@ -1,6 +1,6 @@
 use serde_json::Value;
 
-use kompiler::rules::filter::{FieldFilter, FilterTypes::*, Types};
+use kompiler::{FieldFilter, FilterTypes::*, Types};
 
 use crate::evaluation_engine::{Evaluate, EvaluationContext};
 

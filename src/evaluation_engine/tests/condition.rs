@@ -1,10 +1,9 @@
-use crate::evaluation_engine::{Evaluate, EvaluationContext};
-use kompiler::rules::{
-    condition::Condition,
-    filter::{FieldFilter, FilterTypes, Filters, Types},
-};
 use serde_json::json;
 use std::collections::HashMap;
+
+use kompiler::{Condition, FieldFilter, FilterTypes, Filters, Types};
+
+use crate::evaluation_engine::{Evaluate, EvaluationContext};
 
 fn make_ctx(filters: HashMap<String, Filters>) -> EvaluationContext {
     EvaluationContext::new(filters)

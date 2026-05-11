@@ -3,10 +3,7 @@ use std::collections::HashMap;
 use serde_json::json;
 
 use kompiler::RuleLevel;
-use kompiler::rules::Rule;
-use kompiler::rules::condition::Condition;
-use kompiler::rules::filter::{FieldFilter, FilterTypes, Filters, Types};
-use kompiler::rules::matcher::{AggregationType, Matcher};
+use kompiler::{AggregationType, Condition, FieldFilter, FilterTypes, Filters, Matcher, Rule, Types};
 
 use crate::PreparedRule;
 
