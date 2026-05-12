@@ -3,13 +3,14 @@
 > *"An event unexamined is a threat undetected. The collective examines everything."*
 > — Komrad Engineering Collective, 2026
 
-Korelator is the correlation engine of the Komrad ecosystem. It consumes a stream of JSON events, evaluates each one against a set of declarative detection rules, and triggers alerts when a rule is satisfied. It consumes [Kompiler](https://github.com/komrad-company/Kompiler) for rule parsing and [Khronika](https://github.com/komrad-company/Khronika) for logging. Nothing else enters. Nothing else leaves without scrutiny.
+Korelator is the correlation engine of the Komrad ecosystem. It consumes a stream of JSON events, evaluates each one against a set of declarative detection rules, and persists alerts to PostgreSQL when a rule is satisfied. It consumes [Kompiler](https://github.com/komrad-company/Kompiler) for rule parsing, [Khronika](https://github.com/komrad-company/Khronika) for logging, and [Konnect](https://github.com/komrad-company/Konnect) for database access. Nothing else enters. Nothing else leaves without scrutiny.
 
 ```
 JSON events (stdin | Quickwit)
     └──► Korelator (evaluation engine)
               ├── Kompiler   (rule parsing — Vec<Rule>)
               ├── Khronika   (logging — every decision is traced)
+              ├── Konnect    (PostgreSQL — alert persistence)
               └──► AlertSink (stderr JSON — pluggable trait)
 ```
 
@@ -30,6 +31,15 @@ Korelator reads its configuration from a JSON file. The path is resolved from th
     "log": {
         "level": "error",
         "file": "output/korelator.log"
+    },
+    "database": {
+        "host": "localhost",
+        "port": 5432,
+        "database": "komrad",
+        "user": "korelator",
+        "password": "...",
+        "schema": "korelator",
+        "search_path": "korelator"
     }
 }
 ```
@@ -48,6 +58,15 @@ Korelator reads its configuration from a JSON file. The path is resolved from th
     "log": {
         "level": "error",
         "file": "output/korelator.log"
+    },
+    "database": {
+        "host": "localhost",
+        "port": 5432,
+        "database": "komrad",
+        "user": "korelator",
+        "password": "...",
+        "schema": "korelator",
+        "search_path": "korelator"
     }
 }
 ```
@@ -57,6 +76,7 @@ Korelator reads its configuration from a JSON file. The path is resolved from th
 | `datasource` | `"stdin"` \| `{ "quickwit": { "url", "index" } }` | ✅ | Event source |
 | `rules_path` | `string` | ✅ | Path to rule files, passed directly to `kompiler::parse_rules` |
 | `log` | `TelemetryConfiguration` | ✅ | Khronika logger configuration |
+| `database` | `DatabaseConfig` | ✅ | PostgreSQL connection — see [Konnect](https://github.com/komrad-company/Konnect) |
 
 A missing or malformed configuration file is fatal. The binary exits with code `1`. No partial start is tolerated.
 
@@ -64,38 +84,17 @@ A missing or malformed configuration file is fatal. The binary exits with code `
 
 ## API
 
-The collective exposes one function.
-
-```rust
-use korelator::load_configuration;
-
-let config = load_configuration()?;
-```
-
 ### Public types
 
 | Type | Role |
 |---|---|
 | `Configuration` | Deserialised runtime configuration |
 | `DatasourceType` | Enum — `Stdin` or `Quickwit { url, index }`. Drives source selection at startup. |
-| `PreparedRule` | A parsed [`kompiler::Rule`] with its [`EvaluationContext`] built once at load time. Built via `From<Rule>`. Call `fires_on(&event)` to check the rule, `to_alert(event)` to materialise an `Alert`. |
+| `PreparedRule` | A parsed [`kompiler::Rule`] with its evaluation context built once at load time. Built via `From<Rule>`. Call `fires_on(&event)` to evaluate the rule, `to_alert(event)` to materialise an `Alert`. |
 | `Alert` | One detection record: `rule_id`, `title`, `level`, `event`, `timestamp_unix`. Serialises to JSON. |
 | `AlertSink` | Trait — `fn emit(&self, &Alert)`. `Send + Sync`, ready to share across threads. |
 | `StderrJsonSink` | Default sink — writes one JSON alert per line on stderr. |
-| `Evaluate` | Trait — `fn evaluate(&self, &Value, &EvaluationContext) -> bool`. Evaluation contract for rule fragments. |
-| `EvaluationContext` | Carries named filters via `Arc<HashMap<String, Filters>>` — safe to share across threads. |
-
-### `Evaluate` trait
-
-The evaluation contract for sub-rule fragments. Any structure that can be matched against a JSON event implements it.
-
-```rust
-pub trait Evaluate {
-    fn evaluate(&self, event: &Value, ctx: &EvaluationContext) -> bool;
-}
-```
-
-`EvaluationContext` carries shared named filters via `Arc<HashMap<String, Filters>>` — safe to share across threads. Implemented for `FieldFilter` and `Condition`. Returns `true` on the first matching value — implicit OR over the `values` list.
+| `AlertStore` | PostgreSQL store for alerts — implements `konnect::Store`. Runs schema migrations at startup. |
 
 ### Matcher support
 
@@ -109,7 +108,7 @@ pub trait Evaluate {
 | Code | Meaning |
 |---|---|
 | `0` | Normal exit |
-| `1` | Fatal error loading configuration |
+| `1` | Fatal error — configuration, database connection, or migration failure |
 | `2` | Fatal error parsing rules |
 | `3` | Fatal datasource stream error |
 
@@ -123,7 +122,11 @@ Each dependency was evaluated by the collective before admission. None were adde
 |---|---|---|
 | `kompiler` | komrad-company, git tag | Rule parsing and typed representation |
 | `khronika` | komrad-company, git tag | Structured logging and telemetry |
+| `konnect` | komrad-company, git tag | PostgreSQL connection pool and store trait |
+| `sqlx` | crates.io | SQL query execution and migrations |
 | `serde` + `serde_json` | crates.io | Configuration deserialisation, event handling |
+| `reqwest` | crates.io | HTTP client for Quickwit datasource |
+| `tokio` | crates.io | Async runtime |
 
 ---
 
