@@ -7,13 +7,15 @@ pub enum Error {
     #[error("Missing configuration file: {path}")]
     MissingConfigurationFile { path: String },
     #[error("Datasource error: {0}")]
-    Datasource(#[from] DatasourceError),
+    DatasourceError(#[from] DatasourceError),
+    #[error("Database error: {0}")]
+    DatabaseError(#[from] konnect::Error),
 }
 
 #[derive(Debug, Error)]
 pub enum DatasourceError {
     #[error("I/O error: {0}")]
-    Io(#[from] std::io::Error),
+    IoError(#[from] std::io::Error),
     #[error("HTTP error: {0}")]
-    Http(#[from] reqwest::Error),
+    HttpError(#[from] reqwest::Error),
 }

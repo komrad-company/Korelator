@@ -52,7 +52,7 @@ async fn poll_propagates_http_error_on_server_error() {
     let source = QuickwitSource::new(server.url(), "logs".into());
     assert!(matches!(
         source.poll(&None).await,
-        Err(DatasourceError::Http(_))
+        Err(DatasourceError::HttpError(_))
     ));
 }
 
