@@ -2,10 +2,10 @@ use std::{env, path::Path};
 
 use khronika::{debug, error, info, intialize_logger};
 use kompiler::parse_rules;
-
+use konnect::{Store, init as init_db};
 use korelator::{
-    AlertSink, DatasourceType, PreparedRule, QuickwitSource, StderrJsonSink, StdinSource,
-    load_configuration,
+    AlertSink, AlertStore, DatasourceType, PreparedRule, QuickwitSource, StderrJsonSink,
+    StdinSource, load_configuration,
 };
 
 #[tokio::main]
@@ -19,6 +19,19 @@ async fn main() {
     });
 
     intialize_logger(configuration.log);
+
+    let pool = init_db(&configuration.database)
+        .await
+        .unwrap_or_else(|err| {
+            error!("Database connection failed: {err}");
+            std::process::exit(1);
+        });
+
+    let alert_store = AlertStore::new(pool);
+    alert_store.migrate().await.unwrap_or_else(|err| {
+        error!("Migration failed: {err}");
+        std::process::exit(1);
+    });
 
     let rules_path = Path::new(&configuration.rules_path);
     let parsed = parse_rules(rules_path).unwrap_or_else(|err| {

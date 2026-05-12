@@ -3,6 +3,7 @@ use serde_json::from_reader;
 use std::{fs::File, io::BufReader};
 
 use khronika::configuration::TelemetryConfiguration;
+use konnect::DatabaseConfig;
 
 use crate::datasources::DatasourceType;
 use crate::errors::Error;
@@ -12,6 +13,7 @@ pub struct Configuration {
     pub datasource: DatasourceType,
     pub rules_path: String,
     pub log: TelemetryConfiguration,
+    pub database: DatabaseConfig,
 }
 
 pub fn load(path: String) -> Result<Configuration, Error> {
@@ -55,7 +57,16 @@ mod tests {
             r#"{
                 "datasource": "stdin",
                 "rules_path": "/tmp/rules",
-                "log": { "level": "error", "file": "/tmp/korelator.log" }
+                "log": { "level": "error", "file": "/tmp/korelator.log" },
+                "database": {
+                    "host": "localhost",
+                    "port": 5432,
+                    "database": "komrad",
+                    "user": "korelator",
+                    "password": "secret",
+                    "schema": "korelator",
+                    "search_path": "korelator"
+                }
             }"#,
         );
         let result = load(path.to_str().unwrap().into());
