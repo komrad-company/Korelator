@@ -1,11 +1,9 @@
 use std::{env, path::Path};
 
 use khronika::{debug, error, info, intialize_logger};
-use kompiler::parse_rules;
-use konnect::{Store, init as init_db};
+use konnect::Store;
 use korelator::{
-    AlertSink, AlertStore, DatasourceType, PreparedRule, QuickwitSource, StderrJsonSink,
-    StdinSource, load_configuration,
+    AlertRow, AlertSink, AlertStore, StderrJsonSink, load_configuration, load_rules, run_datasource,
 };
 
 #[tokio::main]
@@ -20,57 +18,38 @@ async fn main() {
 
     intialize_logger(configuration.log);
 
-    let pool = init_db(&configuration.database)
-        .await
-        .unwrap_or_else(|err| {
-            error!("Database connection failed: {err}");
-            std::process::exit(1);
-        });
-
-    let alert_store = AlertStore::new(pool);
-    alert_store.migrate().await.unwrap_or_else(|err| {
-        error!("Migration failed: {err}");
-        std::process::exit(1);
-    });
-
-    let rules_path = Path::new(&configuration.rules_path);
-    let parsed = parse_rules(rules_path).unwrap_or_else(|err| {
+    let rules = load_rules(Path::new(&configuration.rules_path)).unwrap_or_else(|err| {
         error!("Unforgivable error parsing rules: {err}");
         std::process::exit(2);
     });
 
-    let rules: Vec<PreparedRule> = parsed.into_iter().map(PreparedRule::from).collect();
     info!(rules_loaded = rules.len(), "Korelator ready");
 
+    let store = AlertStore::setup(&configuration.database)
+        .await
+        .unwrap_or_else(|err| {
+            error!("Startup failed: {err}");
+            std::process::exit(1);
+        });
+
+    let tx = AlertRow::spawn_persist_task(store.pool().clone());
     let sink: Box<dyn AlertSink> = Box::new(StderrJsonSink);
 
-    let on_event = |event: serde_json::Value| {
+    let on_event = move |event: serde_json::Value| {
         for rule in &rules {
             if rule.fires_on(&event) {
                 debug!(rule_id = rule.id, "rule fired");
-                sink.emit(&rule.to_alert(event.clone()));
+                let alert = rule.to_alert(event.clone());
+                sink.emit(&alert);
+                let _ = tx.send(alert);
             }
         }
     };
 
-    match configuration.datasource {
-        DatasourceType::Stdin => {
-            StdinSource::new()
-                .stream(on_event)
-                .await
-                .unwrap_or_else(|err| {
-                    error!("stdin stream error: {err}");
-                    std::process::exit(3);
-                });
-        }
-        DatasourceType::Quickwit { url, index } => {
-            QuickwitSource::new(url, index)
-                .stream(on_event)
-                .await
-                .unwrap_or_else(|err| {
-                    error!("Quickwit stream error: {err}");
-                    std::process::exit(3);
-                });
-        }
-    }
+    run_datasource(configuration.datasource, on_event)
+        .await
+        .unwrap_or_else(|err| {
+            error!("Datasource error: {err}");
+            std::process::exit(3);
+        });
 }
