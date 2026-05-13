@@ -10,6 +10,8 @@ pub enum Error {
     DatasourceError(#[from] DatasourceError),
     #[error("Database error: {0}")]
     DatabaseError(#[from] konnect::Error),
+    #[error("Migration failed: {0}")]
+    MigrationError(#[from] sqlx::migrate::MigrateError),
 }
 
 #[derive(Debug, Error)]

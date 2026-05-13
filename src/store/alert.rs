@@ -1,4 +1,6 @@
-use konnect::{Error, PgPool, Store};
+use konnect::{PgPool, Store};
+
+use crate::Error;
 
 pub struct AlertStore {
     pool: PgPool,
@@ -12,8 +14,10 @@ impl Store for AlertStore {
     fn pool(&self) -> &PgPool {
         &self.pool
     }
+}
 
-    async fn migrate(&self) -> Result<(), Error> {
+impl AlertStore {
+    pub async fn migrate(&self) -> Result<(), Error> {
         sqlx::migrate!("./migrations")
             .run(self.pool())
             .await
