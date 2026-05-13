@@ -1,9 +1,8 @@
 use std::{env, path::Path};
 
 use khronika::{debug, error, info, intialize_logger};
-use konnect::Store;
 use korelator::{
-    AlertRow, AlertSink, AlertStore, StderrJsonSink, load_configuration, load_rules, run_datasource,
+    AlertSink, AlertStore, StderrJsonSink, load_configuration, load_rules, run_datasource,
 };
 
 #[tokio::main]
@@ -32,7 +31,7 @@ async fn main() {
             std::process::exit(1);
         });
 
-    let tx = AlertRow::spawn_persist_task(store.pool().clone());
+    let tx = store.spawn_persist_task();
     let sink: Box<dyn AlertSink> = Box::new(StderrJsonSink);
 
     let on_event = move |event: serde_json::Value| {
@@ -41,7 +40,9 @@ async fn main() {
                 debug!(rule_id = rule.id, "rule fired");
                 let alert = rule.to_alert(event.clone());
                 sink.emit(&alert);
-                let _ = tx.send(alert);
+                if tx.send(alert).is_err() {
+                    error!(rule_id = rule.id, "persist channel closed, alert dropped");
+                }
             }
         }
     };

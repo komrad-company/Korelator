@@ -1,6 +1,9 @@
+use tokio::sync::mpsc;
+
+use khronika::error;
 use konnect::{PgPool, Store};
 
-use crate::Error;
+use crate::{Alert, AlertRow, Error};
 
 pub struct AlertStore {
     pool: PgPool,
@@ -29,5 +32,19 @@ impl AlertStore {
             .run(self.pool())
             .await
             .map_err(Error::MigrationError)
+    }
+
+    pub fn spawn_persist_task(self) -> mpsc::UnboundedSender<Alert> {
+        let (tx, mut rx) = mpsc::unbounded_channel::<Alert>();
+
+        tokio::spawn(async move {
+            while let Some(alert) = rx.recv().await {
+                if let Err(e) = AlertRow::insert(&self.pool, &alert).await {
+                    error!("Failed to persist alert: {e}");
+                }
+            }
+        });
+
+        tx
     }
 }
