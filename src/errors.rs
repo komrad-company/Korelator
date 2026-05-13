@@ -12,6 +12,8 @@ pub enum Error {
     DatabaseError(#[from] konnect::Error),
     #[error("Migration failed: {0}")]
     MigrationError(#[from] sqlx::migrate::MigrateError),
+    #[error("Rule parse error: {0}")]
+    RuleParseError(#[from] kompiler::Error),
 }
 
 #[derive(Debug, Error)]
