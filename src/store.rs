@@ -1,9 +1,10 @@
 use tokio::sync::mpsc;
 
 use khronika::error;
+use kodeks::Alert;
 use konnect::{PgPool, Store};
 
-use crate::{Alert, AlertRow, Error};
+use crate::Error;
 
 pub struct AlertStore {
     pool: PgPool,
@@ -39,7 +40,7 @@ impl AlertStore {
 
         tokio::spawn(async move {
             while let Some(alert) = rx.recv().await {
-                if let Err(e) = AlertRow::insert(&self.pool, &alert).await {
+                if let Err(e) = alert.write(&self.pool).await {
                     error!("Failed to persist alert: {e}");
                 }
             }

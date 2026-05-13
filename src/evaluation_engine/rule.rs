@@ -3,10 +3,10 @@ use std::collections::HashMap;
 use serde_json::Value;
 
 use khronika::warn;
+use kodeks::Alert;
 use kompiler::RuleLevel;
 use kompiler::{Condition, FieldFilter, Filters, Matcher, Rule};
 
-use crate::alert::Alert;
 use crate::evaluation_engine::{Evaluate, EvaluationContext};
 
 /// A [`Rule`] with its filter context built once at load time.
