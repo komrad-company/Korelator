@@ -1,5 +1,3 @@
-use sqlx;
-
 use konnect::PgPool;
 
 use super::AlertRow;

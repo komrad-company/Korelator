@@ -5,7 +5,7 @@ use super::AlertRow;
 use crate::Error;
 
 impl AlertRow {
-    pub async fn find_by_id(&self, pool: &PgPool, id: Uuid) -> Result<Option<AlertRow>, Error> {
+    pub async fn find_by_id(pool: &PgPool, id: Uuid) -> Result<Option<AlertRow>, Error> {
         sqlx::query_as::<_, AlertRow>(
             "select id, rule_id, title, level, event, triggered_at
              from alerts where id = $1",
