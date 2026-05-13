@@ -80,6 +80,32 @@ Korelator reads its configuration from a JSON file. The path is resolved from th
 
 A missing or malformed configuration file is fatal. The binary exits with code `1`. No partial start is tolerated.
 
+A ready-to-use template is available at [`examples/configuration_template.json`](examples/configuration_template.json).
+
+---
+
+## Running locally
+
+**1. Copy and fill in the template:**
+
+```sh
+cp examples/configuration_template.json configuration.json
+# edit configuration.json — set database credentials and rules_path
+```
+
+**2. Feed events via stdin:**
+
+```sh
+echo '{"process_name": "bash_shell", "username": "deploy"}' | cargo run
+```
+
+The binary resolves its config from the `CONFIGURATION_PATH` environment variable, falling back to `configuration.json` in the working directory. No CLI arguments are accepted.
+
+```sh
+# override config path
+CONFIGURATION_PATH=/etc/korelator/config.json cargo run
+```
+
 ---
 
 ## API
@@ -90,11 +116,16 @@ A missing or malformed configuration file is fatal. The binary exits with code `
 |---|---|
 | `Configuration` | Deserialised runtime configuration |
 | `DatasourceType` | Enum — `Stdin` or `Quickwit { url, index }`. Drives source selection at startup. |
+| `StdinSource` | Reads JSON events line by line from standard input. |
+| `QuickwitSource` | Polls a Quickwit index, paginating with `search_after`. Sleeps 1 s between polls when the index returns no hits. |
 | `PreparedRule` | A parsed [`kompiler::Rule`] with its evaluation context built once at load time. Built via `From<Rule>`. Call `fires_on(&event)` to evaluate the rule, `to_alert(event)` to materialise an `Alert`. |
 | `Alert` | One detection record: `rule_id`, `title`, `level`, `event`, `timestamp_unix`. Serialises to JSON. |
-| `AlertSink` | Trait — `fn emit(&self, &Alert)`. `Send + Sync`, ready to share across threads. |
-| `StderrJsonSink` | Default sink — writes one JSON alert per line on stderr. |
-| `AlertStore` | PostgreSQL store for alerts — implements `konnect::Store`. Runs schema migrations at startup. |
+| `AlertRow` | Persisted alert row read back from PostgreSQL: adds `id` (UUID) and `triggered_at` (timestamp). `AlertRow::insert(pool, &alert)` writes a row and returns the created record. `AlertRow::find_by_id(pool, id)` retrieves by primary key. `AlertRow::spawn_persist_task(pool)` spawns a background task and returns an `UnboundedSender<Alert>` — send an alert to persist it asynchronously. |
+| `AlertSink` | Trait — `fn emit(&self, &Alert)`. `Send + Sync`, ready to share across threads. Must be imported explicitly to call `emit`. |
+| `StderrJsonSink` | Default sink — writes one JSON alert per line on stderr. `emit_to(&alert, writer)` accepts any `Write` for testing. |
+| `AlertStore` | PostgreSQL store for alerts — implements `konnect::Store`. Runs schema migrations at startup via `AlertStore::setup(&config)`. |
+| `load_rules` | Loads and compiles rules from `rules_path` into a `Vec<PreparedRule>`. Fatal on parse error (exit code 2). |
+| `run_datasource` | Drives the event loop: pulls events from the configured source and routes them through the evaluation engine. |
 
 ### Matcher support
 
