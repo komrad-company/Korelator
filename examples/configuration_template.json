@@ -10,5 +10,14 @@
         "level": "error",
         "file": "output/korelator.log",
         "remote": "https://telemetry.korelator.org"
+    },
+    "database": {
+        "host": "<host>",
+        "port": 5432,
+        "database": "<database>",
+        "user": "<user>",
+        "password": "<password>",
+        "schema": "<schema>",
+        "search_path": "<schema>"
     }
 }
