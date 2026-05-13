@@ -16,11 +16,18 @@ serde_json = "1"
 thiserror = "2.0.18"
 reqwest = { version = "0.12", features = ["json"] }
 sqlx = { version = "0.8", features = ["migrate"] }
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "io-std", "sync"] }
+tokio = { version = "1", features = [
+    "rt-multi-thread",
+    "macros",
+    "time",
+    "io-std",
+    "sync",
+] }
 
 khronika = { git = "https://github.com/komrad-company/Khronika.git", tag = "v1.0.2" }
 kompiler = { git = "https://github.com/komrad-company/Kompiler.git" }
 konnect = { git = "https://github.com/komrad-company/Konnect.git" }
+kodeks = { git = "https://github.com/komrad-company/Kodeks.git" }
 
 [dev-dependencies]
 mockito = "1"
