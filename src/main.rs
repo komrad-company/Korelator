@@ -1,6 +1,6 @@
 use std::{env, path::Path};
 
-use khronika::{debug, error, info, intialize_logger};
+use khronika::{debug, error, info, initialize_logger};
 use korelator::{
     AlertSink, AlertStore, StderrJsonSink, load_configuration, load_rules, run_datasource,
 };
@@ -15,7 +15,10 @@ async fn main() {
         std::process::exit(1)
     });
 
-    intialize_logger(configuration.log);
+    let _ = initialize_logger(configuration.log).unwrap_or_else(|err| {
+        eprintln!("Fatal: failed to initialize logger: {err}");
+        std::process::exit(1);
+    });
 
     let rules = load_rules(Path::new(&configuration.rules_path)).unwrap_or_else(|err| {
         error!("Unforgivable error parsing rules: {err}");

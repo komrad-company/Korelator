@@ -2,7 +2,7 @@ use serde::Deserialize;
 use serde_json::from_reader;
 use std::{fs::File, io::BufReader};
 
-use khronika::configuration::TelemetryConfiguration;
+use khronika::TelemetryConfiguration;
 use konnect::DatabaseConfig;
 
 use crate::datasources::DatasourceType;

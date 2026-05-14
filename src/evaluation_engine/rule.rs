@@ -8,7 +8,6 @@ use kompiler::RuleLevel;
 use kompiler::{Condition, FieldFilter, Filters, Matcher, Rule};
 
 use crate::evaluation_engine::{Evaluate, EvaluationContext};
-
 /// A [`Rule`] with its filter context built once at load time.
 ///
 /// Built from a parsed [`Rule`] via [`PreparedRule::from`]. The conversion flattens

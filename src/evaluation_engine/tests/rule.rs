@@ -96,6 +96,6 @@ fn to_alert_carries_rule_metadata_and_event() {
 
     assert_eq!(alert.rule_id, "rule-test");
     assert_eq!(alert.title, "Test rule");
-    assert_eq!(alert.level, "high");
+    assert_eq!(alert.level, RuleLevel::High);
     assert_eq!(alert.event, event);
 }

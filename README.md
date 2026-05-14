@@ -119,11 +119,10 @@ CONFIGURATION_PATH=/etc/korelator/config.json cargo run
 | `StdinSource` | Reads JSON events line by line from standard input. |
 | `QuickwitSource` | Polls a Quickwit index, paginating with `search_after`. Sleeps 1 s between polls when the index returns no hits. |
 | `PreparedRule` | A parsed [`kompiler::Rule`] with its evaluation context built once at load time. Built via `From<Rule>`. Call `fires_on(&event)` to evaluate the rule, `to_alert(event)` to materialise an `Alert`. |
-| `Alert` | One detection record: `rule_id`, `title`, `level`, `event`, `timestamp_unix`. Serialises to JSON. |
-| `AlertRow` | Persisted alert row read back from PostgreSQL: adds `id` (UUID) and `triggered_at` (timestamp). `AlertRow::insert(pool, &alert)` writes a row and returns the created record. `AlertRow::find_by_id(pool, id)` retrieves by primary key. `AlertRow::spawn_persist_task(pool)` spawns a background task and returns an `UnboundedSender<Alert>` — send an alert to persist it asynchronously. |
+| `Alert` | One detection record: `rule_id`, `title`, `level`, `event`, `timestamp_unix`. Serialises to JSON. Defined in Kodeks. |
 | `AlertSink` | Trait — `fn emit(&self, &Alert)`. `Send + Sync`, ready to share across threads. Must be imported explicitly to call `emit`. |
 | `StderrJsonSink` | Default sink — writes one JSON alert per line on stderr. `emit_to(&alert, writer)` accepts any `Write` for testing. |
-| `AlertStore` | PostgreSQL store for alerts — implements `konnect::Store`. Runs schema migrations at startup via `AlertStore::setup(&config)`. |
+| `AlertStore` | PostgreSQL store for alerts — implements `konnect::Store`. `AlertStore::setup(&config)` opens the pool and runs migrations. `spawn_persist_task()` spawns a background Tokio task and returns an `UnboundedSender<Alert>` — send an alert to persist it asynchronously. |
 | `load_rules` | Loads and compiles rules from `rules_path` into a `Vec<PreparedRule>`. Fatal on parse error (exit code 2). |
 | `run_datasource` | Drives the event loop: pulls events from the configured source and routes them through the evaluation engine. |
 
