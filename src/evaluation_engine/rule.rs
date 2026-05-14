@@ -64,6 +64,11 @@ impl PreparedRule {
     }
 
     pub fn to_alert(&self, event: Value) -> Alert {
-        Alert::new(self.id.clone(), self.title.clone(), self.level.to_string(), event)
+        Alert::new(
+            self.id.clone(),
+            self.title.clone(),
+            self.level.to_string(),
+            event,
+        )
     }
 }
