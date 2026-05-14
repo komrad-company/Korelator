@@ -46,7 +46,7 @@ mod tests {
         let alert = Alert::new(
             "rule-001".into(),
             "Test Rule".into(),
-            &RuleLevel::High,
+            RuleLevel::High.to_string(),
             json!({"host": "server1"}),
         );
         StderrJsonSink.emit_to(&alert, &mut FailWriter);

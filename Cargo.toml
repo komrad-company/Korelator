@@ -25,9 +25,9 @@ tokio = { version = "1", features = [
 ] }
 
 khronika = { git = "https://github.com/komrad-company/Khronika.git", tag = "v0.1.0-rc1" }
-kompiler = { git = "https://github.com/komrad-company/Kompiler.git", tag = "v0.1.0-rc1" }
+kompiler = { git = "https://github.com/komrad-company/Kompiler.git", tag = "v0.1.0-rc2" }
 konnect = { git = "https://github.com/komrad-company/Konnect.git", tag = "v0.1.0-rc1" }
-kodeks = { git = "https://github.com/komrad-company/Kodeks.git", tag = "v0.1.0-rc1" }
+kodeks = { git = "https://github.com/komrad-company/Kodeks.git", tag = "v0.1.0-rc2" }
 
 [dev-dependencies]
 mockito = "1"
