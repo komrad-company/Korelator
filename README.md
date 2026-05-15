@@ -1,6 +1,6 @@
 # Korelator
 
-![CI](https://github.com/komrad-company/Korelator/actions/workflows/ci.yml/badge.svg) ![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue)
+![CI](https://github.com/komrad-company/Korelator/actions/workflows/ci.yml/badge.svg) ![Release](https://img.shields.io/github/v/release/komrad-company/Korelator) ![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue)
 
 > *"An event unexamined is a threat undetected. The collective examines everything."*
 > — Komrad Engineering Collective, 2026
