@@ -31,3 +31,8 @@ kodeks = { git = "https://github.com/komrad-company/Kodeks.git", tag = "v0.1.0-r
 
 [dev-dependencies]
 mockito = "1"
+
+[profile.release]
+strip = true
+lto = true
+codegen-units = 1
