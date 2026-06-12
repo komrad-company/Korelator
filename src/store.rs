@@ -29,10 +29,7 @@ impl AlertStore {
     }
 
     pub async fn migrate(&self) -> Result<(), Error> {
-        sqlx::migrate!("./migrations")
-            .run(self.pool())
-            .await
-            .map_err(Error::MigrationError)
+        kodeks::migrate(self.pool()).await.map_err(Error::from)
     }
 
     pub fn spawn_persist_task(self) -> mpsc::UnboundedSender<Alert> {

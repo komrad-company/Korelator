@@ -10,8 +10,8 @@ pub enum Error {
     DatasourceError(#[from] DatasourceError),
     #[error("Database error: {0}")]
     DatabaseError(#[from] konnect::Error),
-    #[error("Migration failed: {0}")]
-    MigrationError(#[from] sqlx::migrate::MigrateError),
+    #[error("Kodeks error: {0}")]
+    KodeksError(#[from] kodeks::Error),
     #[error("Rule parse error: {0}")]
     RuleParseError(#[from] kompiler::Error),
 }
